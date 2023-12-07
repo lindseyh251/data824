@@ -1,0 +1,74 @@
+library(shiny)
+library(readr)
+library(devtools)
+library(dplyr)
+library(ggplot2)
+library(psych)
+
+data <- read_csv("KansasPopulation.csv")
+mydata <- data[-c(106, 212, 318, 424, 530, 636, 742, 848, 954), ]
+ui <- fluidPage(    
+  # Give the page a title
+  titlePanel("Kansas Population Dataset Analysis (Shiny App)"),
+  
+  
+  # Generate a row with a sidebar
+  sidebarLayout( 
+    
+    # Define the sidebar with one input
+    sidebarPanel(
+      selectInput(inputId = "sel_County", label = "Choose County:", 
+      choices=unique(data$County)),
+      
+      
+  hr(),
+  helpText("Data from Kansas Population Dataset")
+    ),
+    
+    # Create a spot for the barplot
+    mainPanel(
+      h3("Population vs. Year for Selected County"),
+      plotOutput("plot"),
+      tableOutput("data"),
+      h3("Interactive plot: Population vs. Year for All Counties"),
+      plotOutput("plot1", brush = "plot_brush"),
+      h4("Select data points in the scatterplot above and a summary of the data points will be shown below"),
+      tableOutput("data1")
+      
+      
+    )
+    
+  )
+)
+
+
+server <- function(input, output, session) {
+    newData <- reactive({
+      req(input$sel_County)
+
+    # Summarize data and plot chart 
+    df <- data %>% filter(County %in% input$sel_County) %>% 
+      group_by(Year) %>% summarise(Population = sum(Population)) 
+    })
+    
+    output$plot <- renderPlot({
+   g <- ggplot(newData(), aes(x = Year, y = Population)) 
+   g + geom_bar(stat='identity') 
+  
+    })
+    output$data <- renderTable({
+      describe(newData())
+    })
+    
+    output$plot1 <- renderPlot({
+      ggplot(mydata, aes(Year, Population)) + geom_point(stat="identity") 
+    }, res = 96)
+    
+    output$data1 <- renderTable({
+      brushedPoints(mydata, input$plot_brush) 
+
+})
+}
+
+shinyApp(ui = ui, server = server)
+
